@@ -123,18 +123,27 @@ def call_generateSP(entry,configFile):
             # Extract unformatter stack traces as tuples
             trace_back = traceback.extract_tb(ex_traceback)
 
-            # Format stacktrace
-            stack_trace = list()
-
+            # Format stacktrace into a readable multiline string
+            stack_lines = []
             for trace in trace_back:
-                stack_trace.append("File : %s , Line : %d, Func.Name : %s, Message : %s\n" % (trace[0], trace[1], trace[2], trace[3]))
+                # trace fields: (filename, lineno, name, line)
+                filename = trace[0]
+                lineno = trace[1]
+                funcname = trace[2]
+                message = trace[3] if trace[3] is not None else ''
+                stack_lines.append(f"  File: {filename}, line {lineno}, in {funcname}\n    {message}\n")
 
-            print("Exception type : %s " % ex_type.__name__)
-            print("Exception message : %s" %ex_value)
-            print("Stack trace : %s" %stack_trace)   
+            stack_trace_str = "".join(stack_lines)
+
+            # Print to stdout in a readable format
+            print(f"Exception type : {ex_type.__name__}")
+            print(f"Exception message : {ex_value}")
+            print("Stack trace:\n" + stack_trace_str)
+
+            # Write readable stack trace to log
             logFile.write('\nException type : %s ' % ex_type.__name__)
-            logFile.write('\nException message : %s' %ex_value)
-            logFile.write('\nStack trace : %s' %stack_trace)
+            logFile.write('\nException message : %s' % ex_value)
+            logFile.write('\nStack trace:\n%s' % stack_trace_str)
         errorOcurred=True
     # Return to parent directory
     os.chdir(mainFolder)
@@ -324,10 +333,11 @@ def parseUserArgs(userArgs):
             with open(logPath,'a') as logFile:
                 logFile.write(f'\n\tPre-optimizaion using MMFF of provided geometry was not set. Default for a mol2 input file is: True')
             preOptimize=True
-    elif userArgs.initialxyz.upper() not in [None, 'NONE', 'RANDOM', 'RAND']:
-        with open(logPath,'a') as logFile:
-            logFile.write(f'\n\tUsing provided initial xyz file: {userArgs.initialxyz}')
-        initialXYZ=userArgs.initialxyz
+    elif userArgs.initialxyz is not None:
+        if userArgs.initialxyz.upper() not in ['NONE', 'RANDOM', 'RAND']:
+            with open(logPath,'a') as logFile:
+                logFile.write(f'\n\tUsing provided initial xyz file: {userArgs.initialxyz}')
+            initialXYZ=userArgs.initialxyz
 
         # State pre-optimization availability
         if userArgs.preoptimize is not None:
@@ -418,7 +428,6 @@ def parseUserArgs(userArgs):
         preOptimize, job_name, np_NWChem, logPath, 
         mainFolder, nJobs, randomSeeds, noautoz, iodine
         )
-
 
 # =============================================================================
 # Main Script
