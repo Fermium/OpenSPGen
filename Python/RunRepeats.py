@@ -51,7 +51,7 @@ noautoz=False
 iodine=False
 # Other spGenerator.py options:
 cleanOutput=True
-removeNWOutput=False
+removeNWOutput=True
 generateFinalXYZ=True
 generateOutputSummary=True
 avgRadius=None
