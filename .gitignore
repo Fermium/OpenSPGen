@@ -6,6 +6,9 @@ Python/lib/__pycache__/*
 *.o*
 test*
 
+# Ignore cluster-specific submission example files
+sub-task-array.sh
+
 # Ignore backup files
 Python/RunRepeats_backup.py
 
