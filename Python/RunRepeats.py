@@ -288,8 +288,9 @@ def parseUserArgs(userArgs):
     randomSeeds=[42+nJob for nJob in range(nJobs)]
 
     # Convert initialxyz from string if needed
-    if userArgs.initialxyz.upper() in ['NONE', None]:
-        initialXYZ=None
+    if userArgs.initialxyz is not None:
+        if userArgs.initialxyz.upper() in ['NONE', None]:
+            initialXYZ=None
     else:
         initialXYZ=userArgs.initialxyz
 
