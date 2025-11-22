@@ -211,38 +211,26 @@ def readOutput(outputPath,doCOSMO=True):
             lastOccurrenceLine=findLastOccurrence(file,['-cosmo-','solvent'])
             # Go to line of last occurrence
             goToLine(file,lastOccurrenceLine)
-            # Retrieve number of segments per atom
-            findNextOccurrence(file,'nspa,') # find table header
-            file.readline() # skip separator
-            # Initialize number of elements per atom
-            numSegments=[]
-            while True:
-                # Read line
-                lineSplit=file.readline().split()
-                nspa=lineSplit[2][:-1]
-                # Check if table has ended
-                if lineSplit[0] == 'number': break
-                numSegments.append(nspa)
-            # Populate array with segment assignments
-            segAtoms = [[i+1]*int(numSegments[i]) for i in range(len(numSegments))]
-            flat_list = lambda main_list: [item for sublist in main_list for item in sublist]
-            segAtoms = flat_list(segAtoms)
-            # Retrieve total number of segments
+            # Retrieve total number of surface segments 
+            lineSplit=findNextOccurrence(file,'points')
             nSeg=int(lineSplit[-1])
-            # Retrieve total surface area
+            # Retrieve total surface area (next line)
             lineSplit=file.readline().split()
-            surfaceArea=float(lineSplit[3])
+            surfaceArea=float(lineSplit[-2])
+            # Initialize list of areas and segment atoms
+            segmentAreas=[]
+            segAtoms=[]
             # Find table with the area of each segment
             findNextOccurrence(file,'G(cav/disp)')  # find table header
-            # Initialize list of areas
-            segmentAreas=[]
             # Find first entry of the table
             lineSplit=findNextOccurrence(file,'1')
             segmentAreas.append(float(lineSplit[1]))
+            segAtoms.append(float(lineSplit[-1]))
             # Read remaining areas
             for __ in range(nSeg-1):
                 lineSplit=file.readline().split()
                 segmentAreas.append(float(lineSplit[1]))
+                segAtoms.append(float(lineSplit[-1]))
             # Find table of final geometry
             findNextOccurrence(file,'1.889725989')
         else:
@@ -258,7 +246,7 @@ def readOutput(outputPath,doCOSMO=True):
                                                         'convert',
                                                         'to',
                                                         'a.u.)'])
-            # Go to line of last occurrence
+            # Go to line of last occurrence of geometry table
             goToLine(file,lastOccurrenceLine)
             # Set COSMO-related outputs to None
             surfaceArea=None
