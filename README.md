@@ -49,7 +49,7 @@ Then, you can run the installation tests (will run a sigma profile generation jo
    ./run-tests.sh
    ```
 
-**Note**: This will install NWChem v 7.3.0, as well as more recent versions of RDKit and Python. As such, the software installed by these 2 methods should complete jobs successfully, but should not be expected to behave the same.
+**Note**: This will install NWChem v 7.3.0, as well as more recent versions of RDKit and Python. As such, the software installed by these 2 methods should complete jobs successfully, but should not be expected to produce the same sigma profiles.
 
 ## Usage Instructions
 
