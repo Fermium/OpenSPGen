@@ -1,0 +1,111 @@
+name: Build & Push Images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  NWCHEM_IMAGE: ghcr.io/fermium/openspgen-nwchem
+  APP_IMAGE: ghcr.io/fermium/openspgen-app
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # Use the docker driver so images are available locally for
+          # the chained FROM in the app Dockerfile.
+          driver: docker
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Compute tags ────────────────────────────────────────────
+      - name: Docker meta (nwchem)
+        id: meta-nwchem
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.NWCHEM_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker meta (app)
+        id: meta-app
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.APP_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # ── Build NWChem base image (loaded into local daemon) ──────
+      - name: Build NWChem image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false
+          load: true
+          tags: ${{ steps.meta-nwchem.outputs.tags }}
+          labels: ${{ steps.meta-nwchem.outputs.labels }}
+
+      # ── Build App image (FROM the local NWChem image) ───────────
+      - name: Build App image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./streamlit_app/Dockerfile
+          build-args: |
+            BASE_IMAGE=${{ env.NWCHEM_IMAGE }}:${{ steps.meta-nwchem.outputs.version }}
+          push: false
+          load: true
+          tags: ${{ steps.meta-app.outputs.tags }}
+          labels: ${{ steps.meta-app.outputs.labels }}
+
+      # ── Push both images (skip on PRs) ──────────────────────────
+      - name: Push NWChem image
+        if: github.event_name != 'pull_request'
+        run: |
+          IFS=$'\n'
+          for tag in $TAGS; do
+            docker push "$tag"
+          done
+        env:
+          TAGS: ${{ steps.meta-nwchem.outputs.tags }}
+
+      - name: Push App image
+        if: github.event_name != 'pull_request'
+        run: |
+          IFS=$'\n'
+          for tag in $TAGS; do
+            docker push "$tag"
+          done
+        env:
+          TAGS: ${{ steps.meta-app.outputs.tags }}
