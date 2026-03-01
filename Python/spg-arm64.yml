@@ -1,0 +1,23 @@
+name: spg-7.3
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - nwchem
+  - rdkit
+  - scipy
+  - numpy
+  - pandas
+  - matplotlib
+  - bottleneck
+  - cirpy
+  - pubchempy
+  - pyyaml
+  - pyparsing
+  - plumed
+  - tqdm
+  - seaborn
+  - statsmodels
+  - openmpi
+  - pip

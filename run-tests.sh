@@ -29,6 +29,12 @@ do
     identifier_type=${identifier_types[$i]}
     identifier=${identifiers[$i]}
     initXYZ=${initXYZs[$i]}
+    
+    # Fix path for initXYZ if it exists
+    if [ "${initXYZ}" != "None" ]; then
+        initXYZ="$(pwd)/${initXYZ}"
+    fi
+
     job_name="${mol_name}-${identifier_type}"
     
     # Print the test info
@@ -58,12 +64,11 @@ do
     # Run the generation script
     python RunRepeats.py --idtype ${identifier_type} --id ${identifier} --charge ${charge} --name ${job_name} --nslots $NSLOTS --initialxyz ${initXYZ}
 
+    # Copy the job folder back to the current directory
+    cp -r SP-*-Mol_${job_name}* ${curr}/tests/
+
     # Go back into tmp/XXX
     cd ..
-    # Delete the unneded folders (everything except the job folder)
-    rm -rf Python manuscript-databases
-    # Copy the job folder back to the current directory
-    cp -r * ${curr}/tests/
     # Remove temp folder (tmp/XXX)
     /bin/rm -r $MY_TEMP
     # Return to current directory

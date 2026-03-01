@@ -15,3 +15,9 @@ Python/RunRepeats_backup.py
 # Ignore python and jupyter cache
 manuscript-databases/GP-Training-HF_yk/.ipynb_checkpoints
 Python/lib/__pycache__/*
+
+SP-*/*
+SP-*/**/*
+*.pyc
+*.log
+.DS_Store

@@ -42,12 +42,12 @@ args=parser.parse_args()
 # =============================================================================
 
 # NWChem Config file base name - full config file path is f"Python/lib/_config/{nwchemConfig}"
-nwchemConfig='COSMO_HF_SVP'
+nwchemConfig='COSMO_BP86_TZVP'
 # Do COSMO? (= calculate sigma profile, not just sigma surface)
 doCOSMO=True
 # Other spGenerator.py options:
-cleanOutput=True        # delete auxiliary NWChem files (e.g. job_name.movecs, job_name.drv.hess, job_name.db)
-removeNWOutput=True     # delete NWChem output file
+cleanOutput=False        # delete auxiliary NWChem files (e.g. job_name.movecs, job_name.drv.hess, job_name.db)
+removeNWOutput=False     # delete NWChem output file
 generateFinalXYZ=True   # generate xyz file for final optimized geometry
 generateOutputSummary=True      # generate output summary file (includes energies from last optimization step)
 avgRadius=None                  # averaging radius for converting sigma surface to sigma profile
@@ -292,8 +292,10 @@ def parseUserArgs(userArgs):
 
     # Convert initialxyz from string if needed
     if userArgs.initialxyz is not None:
-        if userArgs.initialxyz.upper() in ['NONE', None]:
+        if userArgs.initialxyz.upper() in ['NONE', 'NONE']:
             initialXYZ=None
+        else:
+            initialXYZ=userArgs.initialxyz
     else:
         initialXYZ=userArgs.initialxyz
 
