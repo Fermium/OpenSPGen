@@ -51,6 +51,100 @@ Then, you can run the installation tests (will run a sigma profile generation jo
 
 **Note**: This will install NWChem v 7.3.0, as well as more recent versions of RDKit and Python. As such, the software installed by these 2 methods should complete jobs successfully, but should not be expected to produce the same sigma profiles.
 
+### Through Docker (Recommended for macOS / ARM)
+
+Docker provides a fully self-contained environment with NWChem, RDKit, and all dependencies pre-configured. This is the simplest option, especially on Apple Silicon (ARM) Macs where building NWChem natively can be difficult.
+
+**Prerequisites**: [Docker Desktop](https://www.docker.com/products/docker-desktop/) or [OrbStack](https://orbstack.dev/) must be installed and running.
+
+1. Build the Docker image from the repository root:
+   ```bash
+   cd <OpenSPGen-installation-path>
+   docker build -t openspgen-arm .
+   ```
+
+2. Run the installation tests:
+   ```bash
+   docker run --rm -v "$(pwd):/app" -w /app openspgen-arm ./run-tests.sh
+   ```
+
+#### Running a Job with Docker
+
+Use `docker run -d` (detached mode) so the job survives terminal closures and interruptions:
+
+```bash
+cd <OpenSPGen-installation-path>
+
+# Basic example: generate sigma profile for methane
+docker run -d --name methane_job \
+  -v "$(pwd):/app" -w /app openspgen-arm \
+  /bin/bash -c "python Python/RunRepeats.py --idtype SMILES --id C --charge 0 --nslots 4 --name Methane"
+```
+
+With a pre-existing initial geometry (skips PubChem lookup and MMFF pre-optimization):
+
+```bash
+docker run -d --name betaine_job \
+  -v "$(pwd):/app" -w /app openspgen-arm \
+  /bin/bash -c "python Python/RunRepeats.py \
+    --idtype CAS-Number --id 107-43-7 --charge 0 \
+    --name Betaine --initialxyz /app/path/to/geometry.xyz --nslots 8"
+```
+
+**Important notes on Docker usage**:
+- Always use `-d` (detached mode). Without it, closing the terminal or pressing Ctrl+C will kill the NWChem computation.
+- Use `--name <job_name>` to give the container a recognisable name.
+- The `-v "$(pwd):/app"` flag mounts the current directory into the container, so output files appear directly on your host filesystem.
+- When using `--initialxyz`, provide the **absolute path inside the container** (starting with `/app/`).
+
+#### Checking Job Progress
+
+```bash
+# Is the container still running?
+docker ps
+
+# View Python/NWChem stdout (errors, config messages)
+docker logs <container_name>
+
+# Check which geometry optimisation step NWChem is on
+grep "Step " SP-<job_folder>/<job_subfolder>/output.nw | tail -5
+
+# View the latest SCF iterations
+tail -10 SP-<job_folder>/<job_subfolder>/output.nw
+
+# Check if the sigma profile CSV has been generated (= job complete)
+find SP-<job_folder> -name "sigmaProfile.csv"
+```
+
+#### Running Multiple Jobs in Parallel
+
+Launch each molecule in its own detached container:
+
+```bash
+docker run -d --name job_water \
+  -v "$(pwd):/app" -w /app openspgen-arm \
+  /bin/bash -c "python Python/RunRepeats.py --idtype CAS-Number --id 7732-18-5 --charge 0 --name Water --nslots 4"
+
+docker run -d --name job_glycol \
+  -v "$(pwd):/app" -w /app openspgen-arm \
+  /bin/bash -c "python Python/RunRepeats.py --idtype CAS-Number --id 57-55-6 --charge 0 --name Glycol --nslots 4"
+```
+
+Note that parallel jobs share CPU resources. For heavy molecules, running sequentially with full core allocation (`--nslots 8`) is often faster than running in parallel with split cores.
+
+#### Cleanup
+
+```bash
+# Stop a running job
+docker stop <container_name>
+
+# Remove a stopped container
+docker rm <container_name>
+
+# Remove all stopped containers
+docker container prune
+```
+
 ## Usage Instructions
 
 **Simple usage example**:
