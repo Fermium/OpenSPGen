@@ -1,6 +1,6 @@
 """
-OpenSPGen — Interactive Sigma Profile Generator
-================================================
+OpenSPGen-App — Interactive Sigma Profile Generator
+====================================================
 
 Streamlit application that orchestrates the full sigma-profile pipeline:
 
@@ -48,7 +48,7 @@ from components.viewers import (
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="OpenSPGen",
+    page_title="OpenSPGen-App",
     page_icon="🧪",
     layout="wide",
 )
@@ -65,7 +65,7 @@ if "auto_run" not in st.session_state:
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.title("🧪 OpenSPGen")
+    st.title("🧪 OpenSPGen-App")
     st.caption("Interactive Sigma Profile Generator")
     st.divider()
 
@@ -104,7 +104,7 @@ with st.sidebar:
 active_id = st.session_state.active_job_id
 if active_id is None:
     st.markdown(
-        "## Welcome to OpenSPGen\n\n"
+        "## Welcome to OpenSPGen-App\n\n"
         "Use the sidebar to create a new sigma-profile job, or select an "
         "existing job from the history.\n\n"
         "**Pipeline steps:**\n"
@@ -349,6 +349,6 @@ if state.is_complete():
 # ---------------------------------------------------------------------------
 st.divider()
 st.caption(
-    "OpenSPGen — Sigma Profile Generator | "
+    "OpenSPGen-App — Sigma Profile Generator | "
     "NWChem 7.3.0 | BP86/def2-TZVP + COSMO"
 )

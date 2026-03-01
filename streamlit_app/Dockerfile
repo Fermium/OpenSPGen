@@ -1,26 +1,27 @@
 # ============================================================
-# OpenSPGen Streamlit App
+# OpenSPGen-App  —  Streamlit web UI
 # ============================================================
-# Extends the base openspgen-arm image (which has the full conda
+# Extends the base NWChem image (which provides the full conda
 # env with RDKit, numpy, cirpy, pubchempy) and adds Streamlit +
 # the Docker SDK.
 #
-# NWChem runs in a SEPARATE sibling container (openspgen-arm),
-# dispatched via the Docker socket which is bind-mounted in.
+# NWChem runs in a SEPARATE sibling container, dispatched via
+# the Docker socket which is bind-mounted in.
 #
 # Build (from repo root):
-#   docker build -t openspgen-streamlit -f streamlit_app/Dockerfile .
+#   docker build -t openspgen-app -f streamlit_app/Dockerfile .
 #
 # Run:
 #   docker run -p 8501:8501 \
 #     -v /var/run/docker.sock:/var/run/docker.sock \
 #     -v openspgen-jobs:/app/jobs \
-#     openspgen-streamlit
+#     openspgen-app
 #
 # Then open http://localhost:8501
 # ============================================================
 
-FROM openspgen-arm
+ARG BASE_IMAGE=openspgen-nwchem
+FROM ${BASE_IMAGE}
 
 # Refresh code
 COPY . /app

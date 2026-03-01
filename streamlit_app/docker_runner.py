@@ -23,7 +23,7 @@ from docker.errors import NotFound, APIError
 # Configuration
 # ---------------------------------------------------------------------------
 
-NWCHEM_IMAGE = os.environ.get("OPENSPGEN_NWCHEM_IMAGE", "openspgen-arm")
+NWCHEM_IMAGE = os.environ.get("OPENSPGEN_NWCHEM_IMAGE", "openspgen-nwchem")
 
 # Where the shared jobs volume is mounted inside BOTH containers.
 # The Streamlit Dockerfile and the docker-run command must agree on this.
