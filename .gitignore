@@ -1,23 +1,23 @@
-# Ignore node_modules directory
+# Editor / IDE
 .vscode/
-Python/lib/__pycache__/*
+.trunk/
 
-# Ignore job log files and test files/directories
-*.o*
-test*
-
-# Ignore cluster-specific submission example files
-sub-task-array.sh
-
-# Ignore backup files
-Python/RunRepeats_backup.py
-
-# Ignore python and jupyter cache
-manuscript-databases/GP-Training-HF_yk/.ipynb_checkpoints
-Python/lib/__pycache__/*
-
-SP-*/*
-SP-*/**/*
+# Python
+__pycache__/
 *.pyc
-*.log
+*.pyo
+
+# OS
 .DS_Store
+
+# Job output directories
+SP-*/
+jobs/
+
+# NWChem artefacts
+*.o*
+output.nw
+*.npy
+
+# Logs
+*.log

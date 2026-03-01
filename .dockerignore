@@ -1,0 +1,19 @@
+# Git
+.git/
+.gitignore
+
+# IDE / editor
+.vscode/
+.trunk/
+
+# Job outputs (large, never needed in image)
+SP-*/
+jobs/
+
+# OS metadata
+.DS_Store
+
+# Docs / non-runtime
+README.md
+LICENSE
+*.md
