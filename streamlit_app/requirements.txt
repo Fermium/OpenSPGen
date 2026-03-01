@@ -1,0 +1,13 @@
+# OpenSPGen Streamlit App — Python dependencies
+#
+# The scientific/chemistry stack (rdkit, numpy, cirpy, pubchempy) is assumed
+# to be available from the existing conda environment (spg-7.3 / spg.yml).
+# Install these additional packages with:
+#
+#   pip install -r streamlit_app/requirements.txt
+
+streamlit>=1.32
+plotly>=5.18
+docker>=7.0
+py3Dmol>=2.0
+stmol>=0.0.9
