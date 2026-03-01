@@ -8,6 +8,8 @@ Wraps [NWChem](https://nwchemgit.github.io/) (DFT + COSMO) and [RDKit](https://w
 
 Based on the work published in Digital Discovery: [Open-source generation of sigma profiles: impact of quantum chemistry and solvation treatment on machine learning performance](https://pubs.rsc.org/en/content/articlelanding/2025/dd/d5dd00087d).
 
+![OpenSPGen App screenshot](screenshot.gif)
+
 ---
 
 ## Quick start
