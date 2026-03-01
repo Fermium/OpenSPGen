@@ -16,13 +16,91 @@ except ImportError:
 from job_state import STEPS, STEP_LABELS, STATUS_PENDING, STATUS_RUNNING, STATUS_DONE, STATUS_ERROR, STATUS_SKIPPED, JobState
 
 
-_STATUS_ICONS = {
-    STATUS_PENDING: "⬜",
-    STATUS_RUNNING: "🔄",
-    STATUS_DONE: "✅",
-    STATUS_ERROR: "❌",
-    STATUS_SKIPPED: "⏭️",
+# ---------------------------------------------------------------------------
+# Inline SVG icon helpers (replace emoji for cross-platform consistency)
+# ---------------------------------------------------------------------------
+
+_STEPPER_CSS = """
+<style>
+@keyframes spg-spin {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
+.spg-icon { display:inline-block; vertical-align:middle; }
+.spg-icon-spin svg { animation: spg-spin 1s linear infinite; }
+</style>
+"""
+
+
+def _svg_icon(body: str, *, size: int = 28, cls: str = "", color: str = "currentColor") -> str:
+    """Wrap an SVG body in a sized <span> container."""
+    extra = f" {cls}" if cls else ""
+    return (
+        f'<span class="spg-icon{extra}">'
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" '
+        f'viewBox="0 0 24 24" fill="none" stroke="{color}" '
+        f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        f'{body}</svg></span>'
+    )
+
+
+def _icon_pending(size: int = 28) -> str:
+    return _svg_icon('<circle cx="12" cy="12" r="9"/>', size=size, color="#9ca3af")
+
+
+def _icon_running(size: int = 28) -> str:
+    # Partial arc that spins via CSS
+    return _svg_icon(
+        '<circle cx="12" cy="12" r="9" stroke-dasharray="42" stroke-dashoffset="14"/>',
+        size=size, cls="spg-icon-spin", color="#2563eb",
+    )
+
+
+def _icon_done(size: int = 28) -> str:
+    return _svg_icon(
+        '<circle cx="12" cy="12" r="9" fill="#16a34a" stroke="#16a34a"/>'
+        '<path d="M8 12.5l2.5 2.5 5-5" stroke="#fff"/>',
+        size=size, color="#16a34a",
+    )
+
+
+def _icon_error(size: int = 28) -> str:
+    return _svg_icon(
+        '<circle cx="12" cy="12" r="9" fill="#dc2626" stroke="#dc2626"/>'
+        '<path d="M9 9l6 6M15 9l-6 6" stroke="#fff"/>',
+        size=size, color="#dc2626",
+    )
+
+
+def _icon_skipped(size: int = 28) -> str:
+    return _svg_icon(
+        '<circle cx="12" cy="12" r="9" fill="#9ca3af" stroke="#9ca3af"/>'
+        '<path d="M10 8l4 4-4 4" stroke="#fff" fill="none"/>'
+        '<line x1="15" y1="8" x2="15" y2="16" stroke="#fff"/>',
+        size=size, color="#9ca3af",
+    )
+
+
+_STATUS_ICON_FN = {
+    STATUS_PENDING: _icon_pending,
+    STATUS_RUNNING: _icon_running,
+    STATUS_DONE:    _icon_done,
+    STATUS_ERROR:   _icon_error,
+    STATUS_SKIPPED: _icon_skipped,
+}
+
+
+def _status_icon(status: str, size: int = 28) -> str:
+    """Return an inline-SVG icon string for a step status."""
+    fn = _STATUS_ICON_FN.get(status, _icon_pending)
+    return fn(size=size)
+
+
+def _inject_stepper_css():
+    """Inject the stepper CSS once per render cycle."""
+    if not st.session_state.get("_spg_stepper_css_injected"):
+        st.markdown(_STEPPER_CSS, unsafe_allow_html=True)
+        st.session_state["_spg_stepper_css_injected"] = True
 
 
 # NWChem sub-phase definitions (order matters)
@@ -32,24 +110,22 @@ _NWCHEM_SUBPHASES = [
 ]
 
 
-def _subphase_icon(subphase_key: str, current_phase: str) -> str:
-    """Return a status icon for a NWChem sub-phase given the current live phase."""
+def _subphase_icon(subphase_key: str, current_phase: str, size: int = 18) -> str:
+    """Return an inline-SVG status icon for a NWChem sub-phase."""
     order = ["not_started", "vacuum_opt", "cosmo_opt", "finished"]
     try:
         current_idx = order.index(current_phase)
     except ValueError:
-        # error or unknown
         current_idx = -1
     sub_idx = order.index(subphase_key)
 
     if current_phase == "error":
-        # Mark the phase that was active as errored, earlier ones as done
-        return "❌"  # simplified — shown in the sub-stepper
+        return _icon_error(size=size)
     if current_idx > sub_idx:
-        return "✅"
+        return _icon_done(size=size)
     if current_idx == sub_idx:
-        return "🔄"
-    return "⬜"
+        return _icon_running(size=size)
+    return _icon_pending(size=size)
 
 
 def _resolve_nwchem_phase(state: JobState, progress: dict | None = None) -> str:
@@ -60,11 +136,13 @@ def _resolve_nwchem_phase(state: JobState, progress: dict | None = None) -> str:
 
 
 def render_step_progress(state: JobState):
-    """Render a horizontal step-progress bar."""
+    """Render a horizontal step-progress bar with SVG icons."""
+    _inject_stepper_css()
+
     cols = st.columns(len(STEPS))
     for col, step in zip(cols, STEPS):
         status = state.step_status.get(step, STATUS_PENDING)
-        icon = _STATUS_ICONS.get(status, "⬜")
+        icon = _status_icon(status, size=28)
         label = STEP_LABELS[step]
 
         # Build optional sub-phase annotation for the NWChem step
@@ -73,14 +151,14 @@ def render_step_progress(state: JobState):
             phase = _resolve_nwchem_phase(state)
             parts = []
             for key, short_label in _NWCHEM_SUBPHASES:
-                si = _subphase_icon(key, phase)
+                si = _subphase_icon(key, phase, size=16)
                 parts.append(f"{si} {short_label}")
             sub_html = "<br>".join(parts)
             sub_html = f"<div style='margin-top:2px; font-size:0.75em; line-height:1.4'>{sub_html}</div>"
 
         col.markdown(
             f"<div style='text-align:center'>"
-            f"<span style='font-size:1.6em'>{icon}</span><br>"
+            f"{icon}<br>"
             f"<small>{label}</small>"
             f"{sub_html}"
             f"</div>",
@@ -95,14 +173,15 @@ def render_nwchem_substeps(state: JobState, progress: dict | None = None):
     Displayed inside the NWChem expander to disclose the two sequential
     DFT optimisation phases up front.
     """
+    _inject_stepper_css()
     phase = _resolve_nwchem_phase(state, progress)
 
     cols = st.columns(2)
     for col, (key, label) in zip(cols, _NWCHEM_SUBPHASES):
-        icon = _subphase_icon(key, phase)
+        icon = _subphase_icon(key, phase, size=22)
         col.markdown(
             f"<div style='text-align:center; padding:6px 0;'>"
-            f"<span style='font-size:1.3em'>{icon}</span><br>"
+            f"{icon}<br>"
             f"<small><b>{label}</b></small>"
             f"</div>",
             unsafe_allow_html=True,
