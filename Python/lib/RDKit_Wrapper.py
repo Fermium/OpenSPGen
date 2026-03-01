@@ -76,6 +76,8 @@ def generateConformer(smilesString,xyzPath=None,calc_energy=False):
         Molecule object of interest with the conformer embedded.
 
     """
+    if not smilesString:
+        raise ValueError("No SMILES string provided for conformer generation.")
     # Initiate list of energies and list of conformers
     energies=[]
     mList=[]
@@ -168,6 +170,11 @@ def getInitialConformer(smilesString,randomSeed=42,xyzPath=None):
     """
     # Get molecule object from smiles string
     molecule=Chem.MolFromSmiles(smilesString)
+    if molecule is None:
+        raise ValueError(
+            f"RDKit could not parse SMILES: '{smilesString}'. "
+            "Please check the SMILES string and try again."
+        )
     # Add hydrogens to molecule object
     molecule=AllChem.AddHs(molecule)
     # Generate initial 3D structure of the molecule

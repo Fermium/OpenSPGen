@@ -105,6 +105,16 @@ def step_conformer(state: JobState) -> None:
             # User-supplied geometry
             shutil.copy2(state.initial_xyz, xyz_path)
         elif state.smiles:
+            # Validate SMILES before attempting conformer generation
+            from rdkit import Chem
+            test_mol = Chem.MolFromSmiles(state.smiles)
+            if test_mol is None:
+                raise RuntimeError(
+                    f"Invalid SMILES string: '{state.smiles}'. "
+                    "RDKit cannot parse this molecule. "
+                    "Please check the identifier or provide a valid SMILES."
+                )
+            del test_mol
             # RDKit conformer generation
             molecule = rdk.generateConformer(state.smiles, xyzPath=xyz_path)
             if state.charge is None:

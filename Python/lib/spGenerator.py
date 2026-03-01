@@ -491,6 +491,11 @@ def crossCheck(identifier,identifierType):
         # Canonicalize smiles with RDKit before comparing
         mol1=Chem.MolFromSmiles(smilesString_1)
         mol2=Chem.MolFromSmiles(smilesString_2[0].isomeric_smiles)
+        if mol1 is None or mol2 is None:
+            warning='Cross check skipped: RDKit could not parse one of the SMILES...'
+            # Fall back to PubChemPy SMILES without canonicalization
+            smilesString=smilesString_2[0].isomeric_smiles
+            return smilesString,warning
         smilesString_1=Chem.rdmolfiles.MolToSmiles(mol1)
         smilesString_2=Chem.rdmolfiles.MolToSmiles(mol2)
         # Cross check
