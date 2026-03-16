@@ -63,6 +63,26 @@ def render_molecule_input() -> Optional[dict]:
             "from the resolved SMILES. Uncheck to specify manually.",
         )
 
+        num_conformers = st.slider(
+            "Conformer search count",
+            min_value=10,
+            max_value=100,
+            value=50,
+            step=5,
+            help="Number of independent random conformers to generate and "
+            "minimise with MMFF94s before selecting the lowest-energy one "
+            "for DFT.  Higher values improve sampling for flexible molecules "
+            "(e.g. ascorbic acid) at negligible extra cost (seconds).",
+        )
+
+        enumerate_tautomers = st.checkbox(
+            "Enumerate tautomers",
+            value=False,
+            help="Use RDKit's TautomerEnumerator to discover alternative "
+            "tautomeric forms.  The list will be shown after identifier "
+            "resolution so you can pick the relevant form before running DFT.",
+        )
+
         avg_radius = st.number_input(
             "Averaging radius (Å)",
             min_value=0.0,
@@ -93,6 +113,8 @@ def render_molecule_input() -> Optional[dict]:
             "iodine": False,
             "avg_radius": float(avg_radius) if avg_radius > 0 else None,
             "initial_xyz_bytes": initial_xyz,  # UploadedFile or None
+            "num_conformers": int(num_conformers),
+            "enumerate_tautomers": bool(enumerate_tautomers),
         }
         return result
 

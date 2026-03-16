@@ -55,7 +55,11 @@ import docker_runner
 # ---------------------------------------------------------------------------
 
 def step_resolve(state: JobState) -> None:
-    """Resolve identifier → SMILES string, update state."""
+    """Resolve identifier → SMILES string, update state.
+
+    Also performs optional tautomer enumeration and zwitterion detection
+    when the resolved SMILES is available.
+    """
     state.mark_step("resolve", STATUS_RUNNING)
 
     try:
@@ -66,19 +70,29 @@ def step_resolve(state: JobState) -> None:
         if id_type == "SMILES":
             state.smiles = state.identifier
             state.resolved_charge = state.charge
-            state.mark_step("resolve", STATUS_DONE)
-            return
-
-        if state.initial_xyz is not None and state.charge is not None:
+        elif state.initial_xyz is not None and state.charge is not None:
             # No need to resolve — we have geometry + charge.
             state.smiles = None
             state.resolved_charge = state.charge
             state.mark_step("resolve", STATUS_SKIPPED)
             return
+        else:
+            smiles, warning = sp.crossCheck(state.identifier, state.identifier_type)
+            state.smiles = smiles
+            state.cross_check_warning = warning
 
-        smiles, warning = sp.crossCheck(state.identifier, state.identifier_type)
-        state.smiles = smiles
-        state.cross_check_warning = warning
+        # --- Tautomer enumeration (optional) ---
+        if state.smiles and state.enumerate_tautomers:
+            state.tautomers = rdk.enumerateTautomers(state.smiles)
+            # If the user hasn't already picked a tautomer, default to the
+            # input SMILES so the pipeline can proceed automatically.
+            if not state.selected_tautomer:
+                state.selected_tautomer = state.smiles
+
+        # --- Zwitterion detection ---
+        if state.smiles:
+            state.is_zwitterion = rdk.detectZwitterion(state.smiles)
+
         state.mark_step("resolve", STATUS_DONE)
 
     except Exception as exc:
@@ -115,8 +129,16 @@ def step_conformer(state: JobState) -> None:
                     "Please check the identifier or provide a valid SMILES."
                 )
             del test_mol
+
+            # Use the selected tautomer SMILES when available
+            smiles_for_conf = state.selected_tautomer or state.smiles
+
             # RDKit conformer generation
-            molecule = rdk.generateConformer(state.smiles, xyzPath=xyz_path)
+            molecule = rdk.generateConformer(
+                smiles_for_conf,
+                xyzPath=xyz_path,
+                numConformers=state.num_conformers,
+            )
             if state.charge is None:
                 state.resolved_charge = rdmolops.GetFormalCharge(molecule)
                 state.charge = state.resolved_charge
@@ -146,9 +168,22 @@ def _nwchem_input_only(state: JobState) -> str:
     input_path = os.path.join(subfolder, "input.nw")
     name = os.path.basename(subfolder)
 
+    # Build config name from base + optional suffixes
+    config_name = state.config
+    if state.noautoz:
+        config_name += "_noautoz"
+    if state.iodine:
+        config_name += "_Iodine"
+
     config_path = os.path.join(
-        _REPO_ROOT, "Python", "lib", "_config", f"{state.config}.config"
+        _REPO_ROOT, "Python", "lib", "_config", f"{config_name}.config"
     )
+    if not os.path.isfile(config_path):
+        raise FileNotFoundError(
+            f"NWChem config not found: {config_path}. "
+            f"Check that the combination base='{state.config}', "
+            f"noautoz={state.noautoz}, iodine={state.iodine} is valid."
+        )
 
     charge = state.charge if state.charge is not None else 0
     nwc.buildInputFile(input_path, config_path, xyz_path, name, charge)

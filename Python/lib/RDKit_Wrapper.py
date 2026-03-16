@@ -33,12 +33,14 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdForceFieldHelpers as rdff
 from rdkit.Chem import rdFreeSASA
+from rdkit.Chem.MolStandardize.rdMolStandardize import TautomerEnumerator
 
 # =============================================================================
 # Main Functions
 # =============================================================================
 
-def generateConformer(smilesString,xyzPath=None,calc_energy=False):
+def generateConformer(smilesString,xyzPath=None,calc_energy=False,
+                      numConformers=3):
     """
     generateConformer() generates an initial, consistent conformer for the
     desired molecule. To do so, it relies on the MMFF force field
@@ -54,9 +56,9 @@ def generateConformer(smilesString,xyzPath=None,calc_energy=False):
         2. Minimization of the initial conformer with the default
         version of MMFF.
             
-    The above steps are repeated thrice and the lowest energy conformation 
-    is kept. This redundancy fixes rare cases of bad convergence from the
-    intitial structure generated with the distance geometry method.
+    The above steps are repeated *numConformers* times and the lowest energy
+    conformation is kept. This redundancy fixes rare cases of bad convergence
+    from the initial structure generated with the distance geometry method.
     
     Parameters
     ----------
@@ -69,6 +71,9 @@ def generateConformer(smilesString,xyzPath=None,calc_energy=False):
     calc_energy : bool, optional
         If True, the function returns the energy and surface area of the
         conformer. If False, only the molecule object is returned.
+    numConformers : int, optional
+        Number of independent conformers to generate and minimise before
+        selecting the lowest-energy one.  Default is 3 (original behaviour).
 
     Returns
     -------
@@ -81,7 +86,7 @@ def generateConformer(smilesString,xyzPath=None,calc_energy=False):
     # Initiate list of energies and list of conformers
     energies=[]
     mList=[]
-    for n in range(3): # Generate 3 independent conformers
+    for n in range(numConformers):
         # Build molecule object with initial 3D coordinates
         molecule=getInitialConformer(smilesString,randomSeed=n)
         # Skip procedure if number of atoms is inferior to 5
@@ -213,4 +218,55 @@ def generateCustomMMFF(molecule):
     
     # Output
     return prop,ff
-    
+
+
+def enumerateTautomers(smilesString, maxTautomers=25):
+    """
+    Enumerate tautomers of a molecule using RDKit's TautomerEnumerator.
+
+    Parameters
+    ----------
+    smilesString : str
+        Canonical SMILES of the molecule.
+    maxTautomers : int, optional
+        Maximum number of tautomers to return.  Default is 25.
+
+    Returns
+    -------
+    tautomers : list of str
+        List of unique canonical SMILES for each tautomer found
+        (always includes the input molecule).
+    """
+    mol = Chem.MolFromSmiles(smilesString)
+    if mol is None:
+        raise ValueError(f"RDKit could not parse SMILES: '{smilesString}'.")
+
+    enumerator = TautomerEnumerator()
+    enumerator.SetMaxTautomers(maxTautomers)
+
+    tauts = enumerator.Enumerate(mol)
+    seen = set()
+    results = []
+    for t in tauts:
+        smi = Chem.MolToSmiles(t)
+        if smi not in seen:
+            seen.add(smi)
+            results.append(smi)
+    return results
+
+
+def detectZwitterion(smilesString):
+    """
+    Heuristic check for zwitterionic character in a SMILES string.
+
+    Returns True if the molecule contains at least one atom with a positive
+    formal charge and at least one with a negative formal charge while the
+    overall net charge is zero.
+    """
+    mol = Chem.MolFromSmiles(smilesString)
+    if mol is None:
+        return False
+    has_pos = any(a.GetFormalCharge() > 0 for a in mol.GetAtoms())
+    has_neg = any(a.GetFormalCharge() < 0 for a in mol.GetAtoms())
+    net = sum(a.GetFormalCharge() for a in mol.GetAtoms())
+    return has_pos and has_neg and net == 0

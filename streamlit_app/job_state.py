@@ -54,11 +54,16 @@ class JobState:
     initial_xyz: Optional[str] = None  # absolute host path, or None
     sigma_bins: list = field(default_factory=lambda: [-0.250, 0.250, 0.001])
     avg_radius: Optional[float] = None
+    num_conformers: int = 10
+    enumerate_tautomers: bool = False
 
     # --- resolved data ---
     smiles: Optional[str] = None
     resolved_charge: Optional[int] = None
     cross_check_warning: Optional[str] = None
+    tautomers: list = field(default_factory=list)  # SMILES list from enumeration
+    selected_tautomer: Optional[str] = None  # user-chosen tautomer SMILES
+    is_zwitterion: bool = False
 
     # --- progress ---
     current_step: str = "resolve"
@@ -166,6 +171,8 @@ def create_job(
     iodine: bool = False,
     initial_xyz: Optional[str] = None,
     avg_radius: Optional[float] = None,
+    num_conformers: int = 50,
+    enumerate_tautomers: bool = False,
 ) -> JobState:
     """Create a new job with a unique ID and directory."""
     import re as _re
@@ -187,6 +194,8 @@ def create_job(
         iodine=iodine,
         initial_xyz=initial_xyz,
         avg_radius=avg_radius,
+        num_conformers=num_conformers,
+        enumerate_tautomers=enumerate_tautomers,
         created_at=_now(),
     )
     state.save()

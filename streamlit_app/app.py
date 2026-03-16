@@ -92,6 +92,8 @@ with st.sidebar:
             iodine=inputs["iodine"],
             initial_xyz=xyz_path,
             avg_radius=inputs["avg_radius"],
+            num_conformers=inputs["num_conformers"],
+            enumerate_tautomers=inputs["enumerate_tautomers"],
         )
         st.session_state.active_job_id = state.job_id
         st.success(f"Job **{state.job_id}** created!")
@@ -222,6 +224,58 @@ with st.expander("1. Identifier Resolution", expanded=state.current_step == "res
         st.markdown(f"**Charge:** {state.resolved_charge}")
     if state.cross_check_warning:
         st.warning(state.cross_check_warning)
+
+    # --- Zwitterion warning ---
+    if state.is_zwitterion:
+        st.warning(
+            "⚠️ **Zwitterion detected.** This molecule has both positive and negative "
+            "formal charges (net charge = 0). The zwitterionic form may be unstable "
+            "during the vacuum DFT optimisation step and could collapse to a neutral "
+            "tautomer. Consider uploading a pre-optimised XYZ geometry to bypass the "
+            "MMFF conformer step, or verify the final geometry after the calculation."
+        )
+
+    # --- Tautomer enumeration results ---
+    if state.tautomers and len(state.tautomers) > 1:
+        st.info(
+            f"**{len(state.tautomers)} tautomers** found by RDKit. "
+            "Select the form most relevant to your system before running conformer generation."
+        )
+        taut_labels = []
+        for i, smi in enumerate(state.tautomers):
+            marker = " ← input" if smi == state.smiles else ""
+            taut_labels.append(f"{i+1}. {smi}{marker}")
+
+        current_idx = 0
+        if state.selected_tautomer and state.selected_tautomer in state.tautomers:
+            current_idx = state.tautomers.index(state.selected_tautomer)
+
+        selection = st.selectbox(
+            "Select tautomer for conformer generation",
+            options=range(len(state.tautomers)),
+            format_func=lambda i: taut_labels[i],
+            index=current_idx,
+            key="tautomer_select",
+        )
+
+        chosen_smi = state.tautomers[selection]
+        if chosen_smi != state.selected_tautomer:
+            state.selected_tautomer = chosen_smi
+            state.save()
+            st.success(f"Tautomer updated to: `{chosen_smi}`")
+
+        # Show 2D depictions side-by-side for top tautomers
+        try:
+            from rdkit import Chem
+            from rdkit.Chem import Draw
+            mols = [Chem.MolFromSmiles(s) for s in state.tautomers[:6]]
+            mols = [m for m in mols if m is not None]
+            if mols:
+                img = Draw.MolsToGridImage(mols, molsPerRow=3, subImgSize=(300, 200),
+                                           legends=[s[:40] for s in state.tautomers[:6]])
+                st.image(img, caption="Enumerated tautomers (up to 6 shown)")
+        except Exception:
+            pass
 
 # Step 2: Conformer
 with st.expander("2. Conformer Generation", expanded=state.current_step == "conformer"):
