@@ -49,9 +49,11 @@ def render_molecule_input() -> Optional[dict]:
             )
 
         initial_xyz = st.file_uploader(
-            "Initial XYZ (optional)",
-            type=["xyz"],
-            help="Upload an XYZ file to skip conformer generation",
+            "Initial geometry (optional)",
+            type=["xyz", "sdf", "mol"],
+            help="Upload a 3D geometry to skip conformer generation. "
+            "Accepts XYZ, SDF, or MOL. A computed 3D SDF is ideal for "
+            "zwitterions like betaine.",
         )
 
         st.divider()

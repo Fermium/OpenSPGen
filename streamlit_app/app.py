@@ -72,15 +72,50 @@ with st.sidebar:
     # --- New job form ---
     inputs = render_molecule_input()
     if inputs is not None:
-        # Save uploaded XYZ to a temp file if provided
+        # Save uploaded geometry to a temp XYZ file.
+        # SDF/MOL files are converted to XYZ via RDKit.
         xyz_path = None
         if inputs["initial_xyz_bytes"] is not None:
-            tmp = tempfile.NamedTemporaryFile(
-                delete=False, suffix=".xyz", dir=tempfile.gettempdir()
-            )
-            tmp.write(inputs["initial_xyz_bytes"].getvalue())
-            tmp.close()
-            xyz_path = tmp.name
+            uploaded = inputs["initial_xyz_bytes"]
+            fname = uploaded.name.lower()
+
+            if fname.endswith(".xyz"):
+                tmp = tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".xyz", dir=tempfile.gettempdir()
+                )
+                tmp.write(uploaded.getvalue())
+                tmp.close()
+                xyz_path = tmp.name
+            elif fname.endswith((".sdf", ".mol")):
+                from rdkit import Chem
+                from rdkit.Chem import AllChem, rdmolfiles
+                raw = uploaded.getvalue().decode("utf-8", errors="replace")
+                mol = Chem.MolFromMolBlock(raw, removeHs=False)
+                if mol is None:
+                    st.error("Could not parse the uploaded SDF/MOL file.")
+                else:
+                    # Check if geometry is 3D (z-coords not all zero)
+                    conf = mol.GetConformer()
+                    zs = [conf.GetAtomPosition(i).z for i in range(mol.GetNumAtoms())]
+                    is_3d = any(abs(z) > 0.01 for z in zs)
+                    if not is_3d:
+                        st.warning(
+                            "The uploaded MOL/SDF appears to be **2D**. "
+                            "RDKit will embed it into 3D, but the resulting "
+                            "geometry may not be optimal for zwitterions. "
+                            "A computed 3D SDF is strongly recommended."
+                        )
+                        mol = Chem.AddHs(mol)
+                        AllChem.EmbedMolecule(mol, randomSeed=42)
+                        AllChem.MMFFOptimizeMolecule(mol, mmffVariant="MMFF94s")
+                    # Write to XYZ
+                    tmp = tempfile.NamedTemporaryFile(
+                        delete=False, suffix=".xyz", dir=tempfile.gettempdir()
+                    )
+                    tmp.write(Chem.MolToXYZBlock(mol).encode("utf-8"))
+                    tmp.close()
+                    xyz_path = tmp.name
+                    st.info(f"Converted {uploaded.name} → XYZ ({mol.GetNumAtoms()} atoms).")
 
         state = js.create_job(
             identifier=inputs["identifier"],
