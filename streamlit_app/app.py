@@ -241,9 +241,21 @@ with st.expander("1. Identifier Resolution", expanded=state.current_step == "res
             f"**{len(state.tautomers)} tautomers** found by RDKit. "
             "Select the form most relevant to your system before running conformer generation."
         )
+
+        # Compute contextual properties for each tautomer
+        try:
+            taut_props = rdk.tautomerProperties(state.tautomers)
+        except Exception:
+            taut_props = None
+
         taut_labels = []
         for i, smi in enumerate(state.tautomers):
             marker = " ← input" if smi == state.smiles else ""
+            if taut_props and taut_props[i]['rel_energy'] is not None:
+                p = taut_props[i]
+                marker += (f"  |  ΔE={p['rel_energy']:.1f} kcal/mol"
+                           f"  HBD={p['hbd']}  HBA={p['hba']}"
+                           f"  TPSA={p['tpsa']:.0f}Å²")
             taut_labels.append(f"{i+1}. {smi}{marker}")
 
         current_idx = 0
@@ -264,15 +276,36 @@ with st.expander("1. Identifier Resolution", expanded=state.current_step == "res
             state.save()
             st.success(f"Tautomer updated to: `{chosen_smi}`")
 
+        # Property comparison table
+        if taut_props:
+            import pandas as pd
+            df = pd.DataFrame(taut_props)
+            df.index = [f"T{i+1}" for i in range(len(df))]
+            df.columns = ["SMILES", "ΔE (kcal/mol)", "H-bond donors",
+                          "H-bond acceptors", "TPSA (Å²)"]
+            st.dataframe(df, use_container_width=True)
+            st.caption(
+                "**ΔE** = relative MMFF94s energy (0 = most stable). "
+                "**HBD/HBA** = H-bond donors/acceptors (Lipinski). "
+                "**TPSA** = topological polar surface area."
+            )
+
         # Show 2D depictions side-by-side for top tautomers
         try:
             from rdkit import Chem
             from rdkit.Chem import Draw
-            mols = [Chem.MolFromSmiles(s) for s in state.tautomers[:6]]
-            mols = [m for m in mols if m is not None]
-            if mols:
-                img = Draw.MolsToGridImage(mols, molsPerRow=3, subImgSize=(300, 200),
-                                           legends=[s[:40] for s in state.tautomers[:6]])
+            show_tauts = state.tautomers[:6]
+            mols = [Chem.MolFromSmiles(s) for s in show_tauts]
+            mols_clean = [m for m in mols if m is not None]
+            legends = []
+            for i, smi in enumerate(show_tauts):
+                lbl = f"T{i+1}"
+                if taut_props and taut_props[i]['rel_energy'] is not None:
+                    lbl += f"  ΔE={taut_props[i]['rel_energy']:.1f}"
+                legends.append(lbl)
+            if mols_clean:
+                img = Draw.MolsToGridImage(mols_clean, molsPerRow=3, subImgSize=(300, 200),
+                                           legends=legends[:len(mols_clean)])
                 st.image(img, caption="Enumerated tautomers (up to 6 shown)")
         except Exception:
             pass

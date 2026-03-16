@@ -32,7 +32,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdForceFieldHelpers as rdff
-from rdkit.Chem import rdFreeSASA
+from rdkit.Chem import Descriptors, rdMolDescriptors, rdFreeSASA
 from rdkit.Chem.MolStandardize.rdMolStandardize import TautomerEnumerator
 
 # =============================================================================
@@ -253,6 +253,72 @@ def enumerateTautomers(smilesString, maxTautomers=25):
             seen.add(smi)
             results.append(smi)
     return results
+
+
+def tautomerProperties(smilesList):
+    """
+    Compute quick physicochemical descriptors for a list of tautomer SMILES.
+
+    For each tautomer the function returns:
+    - Relative MMFF94s energy (kcal mol⁻¹, lowest = 0)
+    - Number of H-bond donors  (Lipinski definition)
+    - Number of H-bond acceptors (Lipinski definition)
+    - Topological Polar Surface Area (Å²)
+
+    Parameters
+    ----------
+    smilesList : list of str
+        Canonical SMILES strings for each tautomer.
+
+    Returns
+    -------
+    props : list of dict
+        One dict per SMILES with keys: 'smiles', 'rel_energy', 'hbd', 'hba',
+        'tpsa'.  If a conformer cannot be generated for a tautomer, 'rel_energy'
+        will be None.
+    """
+    energies = []
+    props = []
+    for smi in smilesList:
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            props.append({'smiles': smi, 'rel_energy': None,
+                          'hbd': None, 'hba': None, 'tpsa': None})
+            energies.append(None)
+            continue
+
+        hbd = Descriptors.NumHDonors(mol)
+        hba = Descriptors.NumHAcceptors(mol)
+        tpsa = rdMolDescriptors.CalcTPSA(mol)
+
+        # Quick single-conformer MMFF energy
+        energy = None
+        try:
+            mol3d = Chem.AddHs(mol)
+            AllChem.EmbedMolecule(mol3d, randomSeed=42)
+            if mol3d.GetNumConformers() > 0:
+                mp = AllChem.MMFFGetMoleculeProperties(mol3d, 'MMFF94s')
+                if mp is not None:
+                    ff = AllChem.MMFFGetMoleculeForceField(mol3d, mp)
+                    if ff is not None:
+                        ff.Minimize(5000)
+                        energy = ff.CalcEnergy()
+        except Exception:
+            pass
+
+        energies.append(energy)
+        props.append({'smiles': smi, 'rel_energy': energy,
+                      'hbd': hbd, 'hba': hba, 'tpsa': tpsa})
+
+    # Convert absolute energies to relative (lowest = 0)
+    valid = [e for e in energies if e is not None]
+    if valid:
+        emin = min(valid)
+        for p in props:
+            if p['rel_energy'] is not None:
+                p['rel_energy'] = round(p['rel_energy'] - emin, 2)
+
+    return props
 
 
 def detectZwitterion(smilesString):
