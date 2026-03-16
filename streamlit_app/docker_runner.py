@@ -16,6 +16,8 @@ import os
 import time
 from typing import Optional
 
+_DEFAULT_NSLOTS = max(2, os.cpu_count() or 2)
+
 import docker
 from docker.errors import NotFound, APIError
 
@@ -48,7 +50,7 @@ def _client() -> docker.DockerClient:
 def launch_nwchem(
     *,
     job_subfolder: str,
-    nslots: int = 8,
+    nslots: int = _DEFAULT_NSLOTS,
     image: str | None = None,
     container_name: str | None = None,
     jobs_volume: str | None = None,

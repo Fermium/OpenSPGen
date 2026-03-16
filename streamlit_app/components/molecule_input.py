@@ -2,8 +2,12 @@
 Molecule input form component.
 """
 
+import os
+
 import streamlit as st
 from typing import Optional
+
+_DEFAULT_CORES = max(2, os.cpu_count() or 2)
 
 
 def render_molecule_input() -> Optional[dict]:
@@ -40,7 +44,7 @@ def render_molecule_input() -> Optional[dict]:
             )
         with col2:
             nslots = st.number_input(
-                "CPU Cores", min_value=2, max_value=64, value=8, step=1,
+                "CPU Cores", min_value=2, max_value=64, value=_DEFAULT_CORES, step=1,
                 help="Number of MPI ranks for NWChem (must be >= 2)",
             )
 

@@ -11,6 +11,8 @@ import time
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
+_DEFAULT_NSLOTS = max(2, os.cpu_count() or 2)
+
 JOBS_ROOT = os.path.normpath(
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "jobs")
 )
@@ -45,7 +47,7 @@ class JobState:
     identifier_type: str = "CAS-Number"
     charge: Optional[int] = 0
     name: str = ""
-    nslots: int = 8
+    nslots: int = _DEFAULT_NSLOTS
     config: str = "COSMO_BP86_TZVP"
     noautoz: bool = False
     iodine: bool = False
@@ -158,7 +160,7 @@ def create_job(
     identifier_type: str,
     name: str,
     charge: int = 0,
-    nslots: int = 8,
+    nslots: int = _DEFAULT_NSLOTS,
     config: str = "COSMO_BP86_TZVP",
     noautoz: bool = False,
     iodine: bool = False,
