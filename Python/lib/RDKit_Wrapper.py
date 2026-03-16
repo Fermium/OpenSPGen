@@ -183,7 +183,19 @@ def getInitialConformer(smilesString,randomSeed=42,xyzPath=None):
     # Add hydrogens to molecule object
     molecule=AllChem.AddHs(molecule)
     # Generate initial 3D structure of the molecule
-    AllChem.EmbedMolecule(molecule,randomSeed=randomSeed)
+    status=AllChem.EmbedMolecule(molecule,randomSeed=randomSeed)
+    if status==-1:
+        # Distance-geometry failed — retry with random coordinates
+        params=AllChem.ETKDGv3()
+        params.randomSeed=randomSeed
+        params.useRandomCoords=True
+        status=AllChem.EmbedMolecule(molecule,params)
+        if status==-1:
+            raise RuntimeError(
+                f"RDKit EmbedMolecule failed for SMILES '{smilesString}' "
+                f"(seed={randomSeed}) even with useRandomCoords=True. "
+                "The molecule may have a chemically unrealisable topology."
+            )
     # Minimize initial guess with MMFF
     AllChem.MMFFOptimizeMolecule(molecule)
     # If an XYZ file is requested, save XYZ file

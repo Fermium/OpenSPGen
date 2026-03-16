@@ -32,13 +32,47 @@ Author: Dinis Abranches, Fathya Salih
 
 # General
 import os
+import re
 import subprocess
 
 # =============================================================================
 # Main Functions
 # =============================================================================
 
-def buildInputFile(inputPath,configPath,xyzPath,name,charge):
+def _get_system_memory_mb():
+    """
+    Detect total system RAM and return 75% of it in megabytes.
+
+    Falls back to 1000 MB if detection fails.  The returned value is
+    clamped to a minimum of 1000 MB.
+
+    Works on Linux (/proc/meminfo) and other platforms (shutil/os).
+    """
+    total_bytes = None
+    # Linux: read /proc/meminfo for the most reliable figure
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            for line in f:
+                if line.startswith('MemTotal'):
+                    # Line format: "MemTotal:       XXXX kB"
+                    total_kb = int(line.split()[1])
+                    total_bytes = total_kb * 1024
+                    break
+    except (OSError, ValueError):
+        pass
+    # Fallback: os.sysconf (POSIX)
+    if total_bytes is None:
+        try:
+            total_bytes = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+        except (AttributeError, ValueError, OSError):
+            pass
+    if total_bytes is None:
+        return 1000  # safe default
+    total_mb = int(total_bytes / (1024 * 1024))
+    target = int(total_mb * 0.75)
+    return max(target, 1000)
+
+def buildInputFile(inputPath,configPath,xyzPath,name,charge,memory_mb=None):
     """
     buildInputFile() builds an NWChem input file based on the inputs provided
     by the user and the .config file present in lib/_config.
@@ -56,12 +90,19 @@ def buildInputFile(inputPath,configPath,xyzPath,name,charge):
         Name of the molecule/job.
     charge : int
         Total charge of the molecule.
+    memory_mb : int or None, optional
+        Memory allocation for NWChem in megabytes.  When *None* (default),
+        the memory is automatically set to 75 %% of the system's total RAM
+        (minimum 1000 MB).  The ``memory total`` line in the config template
+        is replaced with this value.
 
     Returns
     -------
     None.
 
     """
+    if memory_mb is None:
+        memory_mb = _get_system_memory_mb()
     # Open input file
     with open(inputPath,'w') as inputFile:
         # Write info header
@@ -79,7 +120,7 @@ def buildInputFile(inputPath,configPath,xyzPath,name,charge):
                         +str(charge)
                         +' # Charge of the molecule/ion\n')
         # Copy configuration file
-        copyConfig(inputFile,configPath)
+        copyConfig(inputFile,configPath,memory_mb=memory_mb)
     # Output
     return None
         
@@ -381,10 +422,14 @@ def generateLastStep(outputPath,summaryPath):
 # Auxiliary Functions
 # =============================================================================
 
-def copyConfig(inputFile,configPath):
+def copyConfig(inputFile,configPath,memory_mb=None):
     """
     copyConfig() reads the nwchem configuration file and copies everything
     below the line "-------78963b1b48f356a19a3bdc8650728784-------"
+
+    If *memory_mb* is provided, any ``memory total XXXX mb`` line in the
+    config template is replaced with the given value so that NWChem's
+    memory allocation adapts to the host system.
 
     Parameters
     ----------
@@ -392,12 +437,16 @@ def copyConfig(inputFile,configPath):
         NWChem input file.
     configPath : string
         Path to the nwchem configuration file. See /path/to/lib/config.
+    memory_mb : int or None, optional
+        If given, replaces the ``memory total`` line.  Default is None
+        (keep whatever is in the template).
 
     Returns
     -------
     None.
 
     """
+    _MEMORY_RE = re.compile(r'^\s*memory\s+total\s+\d+\s+mb', re.IGNORECASE)
     
     # Get default config path
     # configPath=os.path.join(os.path.dirname(__file__),
@@ -409,8 +458,12 @@ def copyConfig(inputFile,configPath):
         # Find 78963b1b48f356a19a3bdc8650728784
         findNextOccurrence(configFile,
                            '-------78963b1b48f356a19a3bdc8650728784-------')
-        # Copy remaining file
-        for line in configFile: inputFile.write(line)
+        # Copy remaining file, replacing the memory line if requested
+        for line in configFile:
+            if memory_mb is not None and _MEMORY_RE.match(line):
+                inputFile.write(f'memory total {memory_mb} mb\n')
+            else:
+                inputFile.write(line)
     # Output
     return None
 
