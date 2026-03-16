@@ -6,7 +6,7 @@ WORKDIR /app
 COPY . /app
 
 # Create the conda environment
-RUN conda env create -f Python/spg-arm64.yml
+RUN conda env create -f Python/spg-7.3.yml
 
 # Set path to use the environment by default
 ENV PATH=/opt/conda/envs/spg-7.3/bin:$PATH
